@@ -119,9 +119,9 @@ export function SessionRecordingCollections(): JSX.Element {
         {
             width: 0,
             dataIndex: 'pinned',
-            render: function Render(pinned, playlist) {
+            render: function Render(pinned, { is_synthetic, short_id }) {
                 // Don't show pin button for synthetic playlists
-                if (playlist.is_synthetic) {
+                if (is_synthetic) {
                     return null
                 }
                 return (
@@ -131,7 +131,7 @@ export function SessionRecordingCollections(): JSX.Element {
                     >
                         <LemonButton
                             size="small"
-                            onClick={() => updatePlaylist(playlist.short_id, { pinned: !pinned })}
+                            onClick={() => updatePlaylist(short_id, { pinned: !pinned })}
                             icon={pinned ? <IconPinFilled /> : <IconPin />}
                         />
                     </AccessControlAction>
