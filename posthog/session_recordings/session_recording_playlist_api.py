@@ -37,7 +37,11 @@ from posthog.session_recordings.session_recording_api import (
     list_recordings_response,
     query_as_params_to_dict,
 )
-from posthog.session_recordings.synthetic_playlists import SYNTHETIC_PLAYLISTS, get_synthetic_playlist
+from posthog.session_recordings.synthetic_playlists import (
+    SYNTHETIC_PLAYLISTS,
+    SyntheticPlaylistDefinition,
+    get_synthetic_playlist,
+)
 from posthog.utils import relative_date_parse
 
 logger = structlog.get_logger(__name__)
@@ -45,16 +49,13 @@ logger = structlog.get_logger(__name__)
 PLAYLIST_COUNT_REDIS_PREFIX = "@posthog/replay/playlist_filters_match_count/"
 
 
-def create_synthetic_playlist_instance(synthetic_def, team: Team, user: User) -> SessionRecordingPlaylist:
+def create_synthetic_playlist_instance(
+    synthetic_def: SyntheticPlaylistDefinition, team: Team, user: User
+) -> SessionRecordingPlaylist:
     """
     Create an in-memory SessionRecordingPlaylist instance for a synthetic playlist.
     This instance is not saved to the database.
     """
-    from posthog.session_recordings.synthetic_playlists import SyntheticPlaylistDefinition
-
-    if not isinstance(synthetic_def, SyntheticPlaylistDefinition):
-        raise ValueError("synthetic_def must be a SyntheticPlaylistDefinition")
-
     # Generate a unique negative ID based on the short_id hash
     # This ensures each synthetic playlist has a consistent, unique ID
     synthetic_id = -1 * (hash(synthetic_def.short_id) % 1000000)
