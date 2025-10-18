@@ -234,7 +234,7 @@ const CollectionEmptyState = ({
             ) : isSynthetic ? (
                 <div className="flex flex-col gap-2">
                     <h3 className="title text-secondary mb-0">No recordings yet</h3>
-                    <p>{description || 'This collection is automatically populated based on criteria.'}</p>
+                    <p>{description || 'This collection is automatically populated.'}</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-2">
