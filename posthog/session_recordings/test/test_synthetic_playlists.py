@@ -1,6 +1,6 @@
 from posthog.test.base import APIBaseTest
-from unittest import mock
 
+from parameterized import parameterized
 from rest_framework import status
 
 from posthog.models import Comment
@@ -33,15 +33,16 @@ class TestSyntheticPlaylists(APIBaseTest):
     def test_list_includes_synthetic_playlists(self) -> None:
         synthetic_short_ids = self._get_synthetic_playlists()
 
-        assert sorted(synthetic_short_ids) == sorted(
-            [
-                "synthetic-watch-history",
-                "synthetic-commented",
-                "synthetic-shared",
-                "synthetic-exported",
-                "synthetic-summarised",
-            ]
-        )
+        expected = [
+            "synthetic-watch-history",
+            "synthetic-commented",
+            "synthetic-shared",
+            "synthetic-exported",
+        ]
+        if HAS_EE:
+            expected.append("synthetic-summarised")
+
+        assert sorted(synthetic_short_ids) == sorted(expected)
 
     def test_retrieve_synthetic_playlist(self) -> None:
         playlist = self._get_synthetic_playlist("synthetic-watch-history")
@@ -117,31 +118,22 @@ class TestSyntheticPlaylists(APIBaseTest):
 
         assert playlist["recordings_counts"]["collection"]["count"] == 2
 
-    def test_search_filters_synthetic_playlists(self) -> None:
-        synthetic_short_ids = self._get_synthetic_playlists("?search=watch")
+    @parameterized.expand(
+        [
+            ["type_filters", "type=filters", []],
+            ["user", "user=true", []],
+            ["pinned", "pinned=true", []],
+            ["created_by", "created_by={user_id}", []],
+            ["?search=watch", "search=watch", ["synthetic-watch-history"]],
+        ]
+    )
+    def test_filter_excludes_synthetic_playlists(
+        self, _name: str, query_template: str, expected_results: list[str]
+    ) -> None:
+        query_params = f"?{query_template.format(user_id=self.user.id)}"
+        synthetic_short_ids = self._get_synthetic_playlists(query_params)
 
-        # Should include watch history but not the others
-        assert synthetic_short_ids == ["synthetic-watch-history"]
-
-    def test_type_filter_filters_excludes_synthetic_playlists(self) -> None:
-        synthetic_short_ids = self._get_synthetic_playlists("?type=filters")
-
-        assert len(synthetic_short_ids) == 0
-
-    def test_user_filter_excludes_synthetic_playlists(self) -> None:
-        synthetic_short_ids = self._get_synthetic_playlists("?user=true")
-
-        assert len(synthetic_short_ids) == 0
-
-    def test_pinned_filter_excludes_synthetic_playlists(self) -> None:
-        synthetic_short_ids = self._get_synthetic_playlists("?pinned=true")
-
-        assert len(synthetic_short_ids) == 0
-
-    def test_created_by_filter_excludes_synthetic_playlists(self) -> None:
-        synthetic_short_ids = self._get_synthetic_playlists(f"?created_by={self.user.id}")
-
-        assert len(synthetic_short_ids) == 0
+        assert synthetic_short_ids == expected_results
 
     def test_cannot_update_synthetic_playlist(self) -> None:
         # This will fail because get_object will return an unsaved instance
@@ -153,9 +145,7 @@ class TestSyntheticPlaylists(APIBaseTest):
         # Similar to update - this will fail naturally
         pass  # TODO: Implement proper read-only enforcement if needed
 
-    @mock.patch("posthog.session_recordings.synthetic_playlists.HAS_EE", True)
     def test_synthetic_playlist_summarised_content(self) -> None:
-        """Summarised sessions synthetic playlist should contain sessions with AI summaries"""
         if not HAS_EE:
             # Skip test if EE is not available
             return
