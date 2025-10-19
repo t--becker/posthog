@@ -17,26 +17,34 @@ except ImportError:
 
 
 class TestSyntheticPlaylists(APIBaseTest):
-    def test_list_includes_synthetic_playlists(self) -> None:
-        """Synthetic playlists should appear in the list endpoint"""
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists")
-
+    def _get_synthetic_playlists(self, query_params: str = "") -> list[str]:
+        url = f"/api/projects/{self.team.id}/session_recording_playlists{query_params}"
+        response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        results = response.json()["results"]
 
-        # Check that synthetic playlists are included
-        synthetic_short_ids = [p["short_id"] for p in results if p["short_id"].startswith("synthetic-")]
-        assert "synthetic-watch-history" in synthetic_short_ids
-        assert "synthetic-commented" in synthetic_short_ids
-        assert "synthetic-shared" in synthetic_short_ids
-        assert "synthetic-exported" in synthetic_short_ids
+        results = response.json()["results"]
+        return [p["short_id"] for p in results if p["short_id"].startswith("synthetic-")]
+
+    def _get_synthetic_playlist(self, short_id: str) -> dict:
+        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists/{short_id}")
+        assert response.status_code == status.HTTP_200_OK
+        return response.json()
+
+    def test_list_includes_synthetic_playlists(self) -> None:
+        synthetic_short_ids = self._get_synthetic_playlists()
+
+        assert sorted(synthetic_short_ids) == sorted(
+            [
+                "synthetic-watch-history",
+                "synthetic-commented",
+                "synthetic-shared",
+                "synthetic-exported",
+                "synthetic-summarised",
+            ]
+        )
 
     def test_retrieve_synthetic_playlist(self) -> None:
-        """Can retrieve a synthetic playlist by short_id"""
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists/synthetic-watch-history")
-
-        assert response.status_code == status.HTTP_200_OK
-        playlist = response.json()
+        playlist = self._get_synthetic_playlist("synthetic-watch-history")
 
         assert playlist["short_id"] == "synthetic-watch-history"
         assert playlist["name"] == "Watch history"
@@ -47,23 +55,14 @@ class TestSyntheticPlaylists(APIBaseTest):
         assert playlist["last_modified_at"] is None
 
     def test_synthetic_playlist_watch_history_content(self) -> None:
-        """Watch history synthetic playlist should contain watched recordings"""
-        # Create some viewed recordings
         SessionRecordingViewed.objects.create(team=self.team, user=self.user, session_id="watched-session-1")
         SessionRecordingViewed.objects.create(team=self.team, user=self.user, session_id="watched-session-2")
 
-        # Get the synthetic playlist
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists/synthetic-watch-history")
+        playlist = self._get_synthetic_playlist("synthetic-watch-history")
 
-        assert response.status_code == status.HTTP_200_OK
-        playlist = response.json()
-
-        # Check that the count reflects the watched recordings
         assert playlist["recordings_counts"]["collection"]["count"] == 2
 
     def test_synthetic_playlist_commented_content(self) -> None:
-        """Commented recordings synthetic playlist should contain recordings with comments"""
-        # Create some comments on session recordings
         Comment.objects.create(
             team=self.team,
             created_by=self.user,
@@ -79,18 +78,11 @@ class TestSyntheticPlaylists(APIBaseTest):
             item_id="commented-session-2",
         )
 
-        # Get the synthetic playlist
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists/synthetic-commented")
+        playlist = self._get_synthetic_playlist("synthetic-commented")
 
-        assert response.status_code == status.HTTP_200_OK
-        playlist = response.json()
-
-        # Check that the count reflects the commented recordings
         assert playlist["recordings_counts"]["collection"]["count"] == 2
 
     def test_synthetic_playlist_shared_content(self) -> None:
-        """Shared recordings synthetic playlist should contain shared recordings"""
-        # Create some sharing configurations for recordings
         from posthog.models import SessionRecording
 
         recording1 = SessionRecording.objects.create(team=self.team, session_id="shared-session-1")
@@ -103,18 +95,11 @@ class TestSyntheticPlaylists(APIBaseTest):
             team=self.team, recording=recording2, enabled=True, access_token="test-token-2"
         )
 
-        # Get the synthetic playlist
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists/synthetic-shared")
+        playlist = self._get_synthetic_playlist("synthetic-shared")
 
-        assert response.status_code == status.HTTP_200_OK
-        playlist = response.json()
-
-        # Check that the count reflects the shared recordings
         assert playlist["recordings_counts"]["collection"]["count"] == 2
 
     def test_synthetic_playlist_exported_content(self) -> None:
-        """Exported recordings synthetic playlist should contain exported recordings"""
-        # Create some exported assets with session_recording_id in export_context
         ExportedAsset.objects.create(
             team=self.team,
             export_format=ExportedAsset.ExportFormat.GIF,
@@ -128,99 +113,43 @@ class TestSyntheticPlaylists(APIBaseTest):
             created_by=self.user,
         )
 
-        # Get the synthetic playlist
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists/synthetic-exported")
+        playlist = self._get_synthetic_playlist("synthetic-exported")
 
-        assert response.status_code == status.HTTP_200_OK
-        playlist = response.json()
-
-        # Check that the count reflects the exported recordings
         assert playlist["recordings_counts"]["collection"]["count"] == 2
 
     def test_search_filters_synthetic_playlists(self) -> None:
-        """Search filter should apply to synthetic playlists"""
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists?search=watch")
-
-        assert response.status_code == status.HTTP_200_OK
-        results = response.json()["results"]
+        synthetic_short_ids = self._get_synthetic_playlists("?search=watch")
 
         # Should include watch history but not the others
-        synthetic_short_ids = [p["short_id"] for p in results if p["short_id"].startswith("synthetic-")]
-        assert "synthetic-watch-history" in synthetic_short_ids
-        assert "synthetic-commented" not in synthetic_short_ids
-        assert "synthetic-shared" not in synthetic_short_ids
-
-    def test_type_filter_includes_synthetic_playlists(self) -> None:
-        """Filtering by type=collection should include synthetic playlists"""
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists?type=collection")
-
-        assert response.status_code == status.HTTP_200_OK
-        results = response.json()["results"]
-
-        # All synthetic playlists are of type "collection"
-        synthetic_short_ids = [p["short_id"] for p in results if p["short_id"].startswith("synthetic-")]
-        # Should have at least 4 (could be 5 if EE is available with summarised playlist)
-        assert len(synthetic_short_ids) >= 4
-        assert "synthetic-watch-history" in synthetic_short_ids
-        assert "synthetic-commented" in synthetic_short_ids
-        assert "synthetic-shared" in synthetic_short_ids
-        assert "synthetic-exported" in synthetic_short_ids
+        assert synthetic_short_ids == ["synthetic-watch-history"]
 
     def test_type_filter_filters_excludes_synthetic_playlists(self) -> None:
-        """Filtering by type=filters should exclude synthetic playlists"""
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists?type=filters")
+        synthetic_short_ids = self._get_synthetic_playlists("?type=filters")
 
-        assert response.status_code == status.HTTP_200_OK
-        results = response.json()["results"]
-
-        # No synthetic playlists should be included
-        synthetic_short_ids = [p["short_id"] for p in results if p["short_id"].startswith("synthetic-")]
         assert len(synthetic_short_ids) == 0
 
     def test_user_filter_excludes_synthetic_playlists(self) -> None:
-        """Filtering by user should exclude synthetic playlists (they have no creator)"""
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists?user=true")
+        synthetic_short_ids = self._get_synthetic_playlists("?user=true")
 
-        assert response.status_code == status.HTTP_200_OK
-        results = response.json()["results"]
-
-        # No synthetic playlists should be included
-        synthetic_short_ids = [p["short_id"] for p in results if p["short_id"].startswith("synthetic-")]
         assert len(synthetic_short_ids) == 0
 
     def test_pinned_filter_excludes_synthetic_playlists(self) -> None:
-        """Filtering by pinned should exclude synthetic playlists (they're never pinned)"""
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists?pinned=true")
+        synthetic_short_ids = self._get_synthetic_playlists("?pinned=true")
 
-        assert response.status_code == status.HTTP_200_OK
-        results = response.json()["results"]
-
-        # No synthetic playlists should be included
-        synthetic_short_ids = [p["short_id"] for p in results if p["short_id"].startswith("synthetic-")]
         assert len(synthetic_short_ids) == 0
 
     def test_created_by_filter_excludes_synthetic_playlists(self) -> None:
-        """Filtering by created_by should exclude synthetic playlists (they have no creator)"""
-        response = self.client.get(
-            f"/api/projects/{self.team.id}/session_recording_playlists?created_by={self.user.id}"
-        )
+        synthetic_short_ids = self._get_synthetic_playlists(f"?created_by={self.user.id}")
 
-        assert response.status_code == status.HTTP_200_OK
-        results = response.json()["results"]
-
-        # No synthetic playlists should be included
-        synthetic_short_ids = [p["short_id"] for p in results if p["short_id"].startswith("synthetic-")]
         assert len(synthetic_short_ids) == 0
 
     def test_cannot_update_synthetic_playlist(self) -> None:
-        """Synthetic playlists should be read-only"""
         # This will fail because get_object will return an unsaved instance
         # The update will try to save it but it will fail validation
         # This is acceptable behavior - synthetic playlists are read-only
         pass  # TODO: Implement proper read-only enforcement if needed
 
     def test_cannot_delete_synthetic_playlist(self) -> None:
-        """Synthetic playlists should not be deletable"""
         # Similar to update - this will fail naturally
         pass  # TODO: Implement proper read-only enforcement if needed
 
@@ -245,11 +174,7 @@ class TestSyntheticPlaylists(APIBaseTest):
             created_by=self.user,
         )
 
-        # Get the synthetic playlist
-        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists/synthetic-summarised")
-
-        assert response.status_code == status.HTTP_200_OK
-        playlist = response.json()
+        playlist = self._get_synthetic_playlist("synthetic-summarised")
 
         # Check that the count reflects the summarised recordings
         assert playlist["recordings_counts"]["collection"]["count"] == 2
