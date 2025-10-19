@@ -298,6 +298,10 @@ class SessionRecordingPlaylistSerializer(serializers.ModelSerializer, UserAccess
         return playlist
 
     def update(self, instance: SessionRecordingPlaylist, validated_data: dict, **kwargs) -> SessionRecordingPlaylist:
+        # Prevent updates to synthetic playlists
+        if getattr(instance, "_is_synthetic", False):
+            raise ValidationError("Cannot update synthetic playlists")
+
         try:
             before_update = SessionRecordingPlaylist.objects.get(pk=instance.id)
         except SessionRecordingPlaylist.DoesNotExist:

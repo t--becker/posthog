@@ -136,21 +136,31 @@ class TestSyntheticPlaylists(APIBaseTest):
         assert synthetic_short_ids == expected_results
 
     def test_cannot_update_synthetic_playlist(self) -> None:
-        # This will fail because get_object will return an unsaved instance
-        # The update will try to save it but it will fail validation
-        # This is acceptable behavior - synthetic playlists are read-only
-        pass  # TODO: Implement proper read-only enforcement if needed
+        playlist = self._get_synthetic_playlist("synthetic-watch-history")
+        assert playlist["short_id"] == "synthetic-watch-history"
+
+        response = self.client.patch(
+            f"/api/projects/{self.team.id}/session_recording_playlists/synthetic-watch-history",
+            {"name": "Modified name", "description": "Modified description"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_cannot_delete_synthetic_playlist(self) -> None:
-        # Similar to update - this will fail naturally
-        pass  # TODO: Implement proper read-only enforcement if needed
+        playlist = self._get_synthetic_playlist("synthetic-watch-history")
+        assert playlist["short_id"] == "synthetic-watch-history"
+
+        response = self.client.delete(
+            f"/api/projects/{self.team.id}/session_recording_playlists/synthetic-watch-history"
+        )
+
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
     def test_synthetic_playlist_summarised_content(self) -> None:
         if not HAS_EE:
             # Skip test if EE is not available
             return
 
-        # Create some session summaries
         SingleSessionSummary.objects.create(
             team=self.team,
             session_id="summarised-session-1",
@@ -166,5 +176,4 @@ class TestSyntheticPlaylists(APIBaseTest):
 
         playlist = self._get_synthetic_playlist("synthetic-summarised")
 
-        # Check that the count reflects the summarised recordings
         assert playlist["recordings_counts"]["collection"]["count"] == 2
