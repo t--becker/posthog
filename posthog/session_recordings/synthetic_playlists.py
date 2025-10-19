@@ -78,20 +78,18 @@ def get_summarised_session_ids(team: Team, user: User) -> list[str]:
 
 def get_exported_session_ids(team: Team, user: User) -> list[str]:
     """Get all session IDs that have been exported (clipped to GIF or screenshot)"""
-    # Query for ExportedAssets where export_context contains session_recording_id
-    # We need to iterate and extract from JSON since JSONField lookups work differently
-    session_ids = []
-    exported_assets = (
-        ExportedAsset.objects.filter(team=team).exclude(export_context__isnull=True).order_by("-created_at")[:1000]
+    # Use Django's JSONField lookups to filter and extract at database level
+    session_ids = (
+        ExportedAsset.objects.filter(team=team)
+        .filter(export_context__has_key="session_recording_id")
+        .exclude(export_context__session_recording_id__isnull=True)
+        .exclude(export_context__session_recording_id="")
+        .order_by("-created_at")[:1000]
+        .values_list("export_context__session_recording_id", flat=True)
     )
 
-    for asset in exported_assets:
-        if asset.export_context and "session_recording_id" in asset.export_context:
-            session_id = asset.export_context["session_recording_id"]
-            if session_id and session_id not in session_ids:
-                session_ids.append(session_id)
-
-    return session_ids
+    # Remove duplicates while preserving order (most recent first)
+    return list(dict.fromkeys(session_ids))
 
 
 # Registry of all synthetic playlists
