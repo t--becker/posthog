@@ -4,6 +4,7 @@ from unittest import mock
 from rest_framework import status
 
 from posthog.models import Comment
+from posthog.models.exported_asset import ExportedAsset
 from posthog.models.sharing_configuration import SharingConfiguration
 from posthog.session_recordings.models.session_recording_event import SessionRecordingViewed
 
@@ -28,6 +29,7 @@ class TestSyntheticPlaylists(APIBaseTest):
         assert "synthetic-watch-history" in synthetic_short_ids
         assert "synthetic-commented" in synthetic_short_ids
         assert "synthetic-shared" in synthetic_short_ids
+        assert "synthetic-exported" in synthetic_short_ids
 
     def test_retrieve_synthetic_playlist(self) -> None:
         """Can retrieve a synthetic playlist by short_id"""
@@ -110,6 +112,31 @@ class TestSyntheticPlaylists(APIBaseTest):
         # Check that the count reflects the shared recordings
         assert playlist["recordings_counts"]["collection"]["count"] == 2
 
+    def test_synthetic_playlist_exported_content(self) -> None:
+        """Exported recordings synthetic playlist should contain exported recordings"""
+        # Create some exported assets with session_recording_id in export_context
+        ExportedAsset.objects.create(
+            team=self.team,
+            export_format=ExportedAsset.ExportFormat.GIF,
+            export_context={"session_recording_id": "exported-session-1"},
+            created_by=self.user,
+        )
+        ExportedAsset.objects.create(
+            team=self.team,
+            export_format=ExportedAsset.ExportFormat.PNG,
+            export_context={"session_recording_id": "exported-session-2"},
+            created_by=self.user,
+        )
+
+        # Get the synthetic playlist
+        response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists/synthetic-exported")
+
+        assert response.status_code == status.HTTP_200_OK
+        playlist = response.json()
+
+        # Check that the count reflects the exported recordings
+        assert playlist["recordings_counts"]["collection"]["count"] == 2
+
     def test_search_filters_synthetic_playlists(self) -> None:
         """Search filter should apply to synthetic playlists"""
         response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists?search=watch")
@@ -132,11 +159,12 @@ class TestSyntheticPlaylists(APIBaseTest):
 
         # All synthetic playlists are of type "collection"
         synthetic_short_ids = [p["short_id"] for p in results if p["short_id"].startswith("synthetic-")]
-        # Should have at least 3 (could be 4 if EE is available with summarised playlist)
-        assert len(synthetic_short_ids) >= 3
+        # Should have at least 4 (could be 5 if EE is available with summarised playlist)
+        assert len(synthetic_short_ids) >= 4
         assert "synthetic-watch-history" in synthetic_short_ids
         assert "synthetic-commented" in synthetic_short_ids
         assert "synthetic-shared" in synthetic_short_ids
+        assert "synthetic-exported" in synthetic_short_ids
 
     def test_type_filter_filters_excludes_synthetic_playlists(self) -> None:
         """Filtering by type=filters should exclude synthetic playlists"""

@@ -421,6 +421,8 @@ class SessionRecordingPlaylistViewSet(
             request_value = filters[key]
             if key == "user":
                 queryset = queryset.filter(created_by=request.user)
+            elif key == "created_by":
+                queryset = queryset.filter(created_by=request_value)
             elif key == "type":
                 if request_value == SessionRecordingPlaylist.PlaylistType.COLLECTION:
                     queryset = queryset.filter(type=SessionRecordingPlaylist.PlaylistType.COLLECTION)

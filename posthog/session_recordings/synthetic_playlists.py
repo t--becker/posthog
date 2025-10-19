@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from posthog.models import Comment, Team, User
+from posthog.models.exported_asset import ExportedAsset
 from posthog.models.sharing_configuration import SharingConfiguration
 from posthog.session_recordings.models.session_recording_event import SessionRecordingViewed
 
@@ -75,6 +76,24 @@ def get_summarised_session_ids(team: Team, user: User) -> list[str]:
     )
 
 
+def get_exported_session_ids(team: Team, user: User) -> list[str]:
+    """Get all session IDs that have been exported (clipped to GIF or screenshot)"""
+    # Query for ExportedAssets where export_context contains session_recording_id
+    # We need to iterate and extract from JSON since JSONField lookups work differently
+    session_ids = []
+    exported_assets = (
+        ExportedAsset.objects.filter(team=team).exclude(export_context__isnull=True).order_by("-created_at")[:1000]
+    )
+
+    for asset in exported_assets:
+        if asset.export_context and "session_recording_id" in asset.export_context:
+            session_id = asset.export_context["session_recording_id"]
+            if session_id and session_id not in session_ids:
+                session_ids.append(session_id)
+
+    return session_ids
+
+
 # Registry of all synthetic playlists
 def _get_synthetic_playlists() -> list[SyntheticPlaylistDefinition]:
     """Build the list of synthetic playlists, conditionally including EE features"""
@@ -106,13 +125,22 @@ def _get_synthetic_playlists() -> list[SyntheticPlaylistDefinition]:
             get_session_ids=get_shared_session_ids,
             metadata={"icon": "IconShare", "is_user_specific": False},
         ),
+        SyntheticPlaylistDefinition(
+            id=-4,
+            short_id="synthetic-exported",
+            name="Exported recordings",
+            description="Recordings that have been exported as clips or screenshots",
+            type="collection",
+            get_session_ids=get_exported_session_ids,
+            metadata={"icon": "IconDownload", "is_user_specific": False},
+        ),
     ]
 
     # Only add summarised playlist if EE is available
     if HAS_EE:
         playlists.append(
             SyntheticPlaylistDefinition(
-                id=-4,
+                id=-5,
                 short_id="synthetic-summarised",
                 name="Summarised sessions",
                 description="Sessions with AI-generated summaries. Ask PostHog AI to summarize sessions for you.",

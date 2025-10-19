@@ -102,22 +102,26 @@ export function SessionRecordingsPlaylistScene(): JSX.Element {
                         prefix="Last modified"
                     />
                 </ScenePanelInfoSection>
-                <ScenePanelDivider />
-                <ScenePanelActionsSection>
-                    <SceneDuplicate dataAttrKey={RESOURCE_TYPE} onClick={() => duplicatePlaylist()} />
-                    <ScenePin
-                        dataAttrKey={RESOURCE_TYPE}
-                        onClick={() => updatePlaylist({ pinned: !playlist.pinned })}
-                        isPinned={playlist.pinned ?? false}
-                    />
-                    <SceneMetalyticsSummaryButton dataAttrKey={RESOURCE_TYPE} />
-                </ScenePanelActionsSection>
-                <ScenePanelDivider />
-                <ScenePanelActionsSection>
-                    <ButtonPrimitive variant="danger" onClick={() => deletePlaylist()} menuItem>
-                        Delete collection
-                    </ButtonPrimitive>
-                </ScenePanelActionsSection>
+                {!playlist.is_synthetic && (
+                    <>
+                        <ScenePanelDivider />
+                        <ScenePanelActionsSection>
+                            <SceneDuplicate dataAttrKey={RESOURCE_TYPE} onClick={() => duplicatePlaylist()} />
+                            <ScenePin
+                                dataAttrKey={RESOURCE_TYPE}
+                                onClick={() => updatePlaylist({ pinned: !playlist.pinned })}
+                                isPinned={playlist.pinned ?? false}
+                            />
+                            <SceneMetalyticsSummaryButton dataAttrKey={RESOURCE_TYPE} />
+                        </ScenePanelActionsSection>
+                        <ScenePanelDivider />
+                        <ScenePanelActionsSection>
+                            <ButtonPrimitive variant="danger" onClick={() => deletePlaylist()} menuItem>
+                                Delete collection
+                            </ButtonPrimitive>
+                        </ScenePanelActionsSection>
+                    </>
+                )}
             </ScenePanel>
 
             <SceneContent className="SessionRecordingPlaylistHeightWrapper">
@@ -133,21 +137,23 @@ export function SessionRecordingsPlaylistScene(): JSX.Element {
                     onDescriptionChange={(description) => {
                         updatePlaylist({ description })
                     }}
-                    canEdit
+                    canEdit={!playlist.is_synthetic}
                     forceEdit={isNewPlaylist}
                     renameDebounceMs={1000}
                     actions={
-                        <LemonButton
-                            type="primary"
-                            disabledReason={showFilters && !hasChanges ? 'No changes to save' : undefined}
-                            loading={hasChanges && playlistLoading}
-                            onClick={() => {
-                                showFilters ? updatePlaylist() : setShowFilters(!showFilters)
-                            }}
-                            size="small"
-                        >
-                            {showFilters ? <>Save changes</> : <>Edit</>}
-                        </LemonButton>
+                        !playlist.is_synthetic ? (
+                            <LemonButton
+                                type="primary"
+                                disabledReason={showFilters && !hasChanges ? 'No changes to save' : undefined}
+                                loading={hasChanges && playlistLoading}
+                                onClick={() => {
+                                    showFilters ? updatePlaylist() : setShowFilters(!showFilters)
+                                }}
+                                size="small"
+                            >
+                                {showFilters ? <>Save changes</> : <>Edit</>}
+                            </LemonButton>
+                        ) : undefined
                     }
                 />
                 <SceneDivider />
