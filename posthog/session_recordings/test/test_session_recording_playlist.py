@@ -103,17 +103,109 @@ class TestSessionRecordingPlaylist(APIBaseTest, QueryMatchingTest):
         assert response.status_code == status.HTTP_200_OK
         # Filter out synthetic playlists for this test
         response_data = response.json()
-        non_synthetic_results = [p for p in response_data["results"] if not p.get("is_synthetic")]
-
-        assert len(non_synthetic_results) == 2
-        # Check the essential fields instead of full structure
-        assert non_synthetic_results[0]["short_id"] == playlist_two.json()["short_id"]
-        assert non_synthetic_results[0]["name"] == "test2"
-        assert non_synthetic_results[0]["recordings_counts"]["saved_filters"]["count"] == 2
-        assert non_synthetic_results[0]["recordings_counts"]["saved_filters"]["watched_count"] == 1
-
-        assert non_synthetic_results[1]["short_id"] == playlist_one.json()["short_id"]
-        assert non_synthetic_results[1]["name"] == "test"
+        assert response_data["count"] == 7
+        assert response_data["next"] is None
+        assert response_data["previous"] is None
+        assert [x for x in response_data["results"] if not x["is_synthetic"]] == [
+            {
+                "is_synthetic": False,
+                "created_at": mock.ANY,
+                "created_by": {
+                    "distinct_id": self.user.distinct_id,
+                    "email": self.user.email,
+                    "first_name": "",
+                    "hedgehog_config": None,
+                    "id": self.user.id,
+                    "is_email_verified": None,
+                    "last_name": "",
+                    "role_at_organization": None,
+                    "uuid": mock.ANY,
+                },
+                "deleted": False,
+                "derived_name": None,
+                "description": "",
+                "filters": {},
+                "id": playlist_two.json()["id"],
+                "last_modified_at": mock.ANY,
+                "last_modified_by": {
+                    "distinct_id": self.user.distinct_id,
+                    "email": self.user.email,
+                    "first_name": "",
+                    "hedgehog_config": None,
+                    "id": self.user.id,
+                    "is_email_verified": None,
+                    "last_name": "",
+                    "role_at_organization": None,
+                    "uuid": mock.ANY,
+                },
+                "name": "test2",
+                "pinned": False,
+                "recordings_counts": {
+                    "collection": {
+                        "count": None,
+                        "watched_count": 0,
+                    },
+                    "saved_filters": {
+                        "count": 2,
+                        "has_more": False,
+                        "watched_count": 1,
+                        "increased": True,
+                        "last_refreshed_at": None,
+                    },
+                },
+                "short_id": playlist_two.json()["short_id"],
+                "type": "collection",
+            },
+            {
+                "is_synthetic": False,
+                "created_at": mock.ANY,
+                "created_by": {
+                    "distinct_id": self.user.distinct_id,
+                    "email": self.user.email,
+                    "first_name": "",
+                    "hedgehog_config": None,
+                    "id": self.user.id,
+                    "is_email_verified": None,
+                    "last_name": "",
+                    "role_at_organization": None,
+                    "uuid": mock.ANY,
+                },
+                "deleted": False,
+                "derived_name": None,
+                "description": "",
+                "filters": {},
+                "id": playlist_one.json()["id"],
+                "last_modified_at": mock.ANY,
+                "last_modified_by": {
+                    "distinct_id": self.user.distinct_id,
+                    "email": self.user.email,
+                    "first_name": "",
+                    "hedgehog_config": None,
+                    "id": self.user.id,
+                    "is_email_verified": None,
+                    "last_name": "",
+                    "role_at_organization": None,
+                    "uuid": mock.ANY,
+                },
+                "name": "test",
+                "pinned": False,
+                "recordings_counts": {
+                    "collection": {
+                        "count": None,
+                        "watched_count": 0,
+                    },
+                    "saved_filters": {
+                        "count": None,
+                        "has_more": None,
+                        "watched_count": None,
+                        "increased": None,
+                        "last_refreshed_at": None,
+                    },
+                },
+                "short_id": playlist_one.json()["short_id"],
+                "type": "collection",
+            },
+        ]
 
     def test_creates_playlist_without_type(self):
         self._create_playlist(
