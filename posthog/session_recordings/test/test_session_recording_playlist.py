@@ -77,9 +77,11 @@ class TestSessionRecordingPlaylist(APIBaseTest, QueryMatchingTest):
     def test_list_playlists_when_there_are_no_playlists(self):
         response = self.client.get(f"/api/projects/{self.team.id}/session_recording_playlists")
         assert response.status_code == status.HTTP_200_OK
-        # Filter out synthetic playlists for this test
-        results = [p for p in response.json()["results"] if not p.get("is_synthetic")]
-        assert len(results) == 0
+        results = response.json()["results"]
+
+        # When there are no user-created playlists, we should only get synthetic playlists
+        assert len(results) > 0, "Should have synthetic playlists"
+        assert all(p.get("is_synthetic") for p in results), "All playlists should be synthetic"
 
     def test_list_playlists_when_there_are_some_playlists(self):
         playlist_one = self._create_playlist({"name": "test", "type": "collection"})
