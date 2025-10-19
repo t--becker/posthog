@@ -230,6 +230,8 @@ export const logsLogic = kea<logsLogicType>([
                     })
                     actions.setLogsAbortController(null)
                     response.results.forEach((row) => {
+                        // force timestamp to be treated as UTC (which it is)
+                        row.timestamp += 'Z'
                         Object.keys(row.attributes).forEach((key) => {
                             const value = row.attributes[key]
                             row.attributes[key] = typeof value === 'string' ? value : JSON.stringify(value)
