@@ -115,7 +115,7 @@ def _get_synthetic_playlists() -> list[SyntheticPlaylistDefinition]:
                 id=-4,
                 short_id="synthetic-summarised",
                 name="Summarised sessions",
-                description="Sessions with AI-generated summaries",
+                description="Sessions with AI-generated summaries. Ask PostHog AI to summarize sessions for you.",
                 type="collection",
                 get_session_ids=get_summarised_session_ids,
                 metadata={"icon": "IconSparkles", "is_user_specific": False},
