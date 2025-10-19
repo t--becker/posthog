@@ -22,6 +22,7 @@ except ImportError:
 class SyntheticPlaylistDefinition:
     """Definition of a synthetic playlist that will be computed on-demand"""
 
+    id: int
     short_id: str
     name: str
     description: str
@@ -79,6 +80,7 @@ def _get_synthetic_playlists() -> list[SyntheticPlaylistDefinition]:
     """Build the list of synthetic playlists, conditionally including EE features"""
     playlists = [
         SyntheticPlaylistDefinition(
+            id=-1,
             short_id="synthetic-watch-history",
             name="Watch history",
             description="Recordings you have watched",
@@ -87,6 +89,7 @@ def _get_synthetic_playlists() -> list[SyntheticPlaylistDefinition]:
             metadata={"icon": "IconEye", "is_user_specific": True},
         ),
         SyntheticPlaylistDefinition(
+            id=-2,
             short_id="synthetic-commented",
             name="Recordings with comments",
             description="Recordings that have team comments",
@@ -95,6 +98,7 @@ def _get_synthetic_playlists() -> list[SyntheticPlaylistDefinition]:
             metadata={"icon": "IconComment", "is_user_specific": False},
         ),
         SyntheticPlaylistDefinition(
+            id=-3,
             short_id="synthetic-shared",
             name="Shared recordings",
             description="Recordings that have been shared externally",
@@ -108,6 +112,7 @@ def _get_synthetic_playlists() -> list[SyntheticPlaylistDefinition]:
     if HAS_EE:
         playlists.append(
             SyntheticPlaylistDefinition(
+                id=-4,
                 short_id="synthetic-summarised",
                 name="Summarised sessions",
                 description="Sessions with AI-generated summaries",

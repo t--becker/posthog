@@ -56,13 +56,9 @@ def create_synthetic_playlist_instance(
     Create an in-memory SessionRecordingPlaylist instance for a synthetic playlist.
     This instance is not saved to the database.
     """
-    # Generate a unique negative ID based on the short_id hash
-    # This ensures each synthetic playlist has a consistent, unique ID
-    synthetic_id = -1 * (hash(synthetic_def.short_id) % 1000000)
-
     # Create an unsaved instance with all the necessary fields
     instance = SessionRecordingPlaylist(
-        id=synthetic_id,
+        id=synthetic_def.id,
         short_id=synthetic_def.short_id,
         name=synthetic_def.name,
         description=synthetic_def.description,
