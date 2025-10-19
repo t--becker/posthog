@@ -126,7 +126,7 @@ def count_saved_filters(playlist: SessionRecordingPlaylist, user: User, team: Te
 def count_synthetic_playlist(
     playlist: SessionRecordingPlaylist, user: User, team: Team
 ) -> dict[str, int | bool | None]:
-    """Count recordings in a synthetic playlist by calling its get_session_ids function"""
+    """Count recordings in a synthetic playlist using efficient database-level counting"""
     synthetic_def = get_synthetic_playlist(playlist.short_id)
     if not synthetic_def:
         return {
@@ -137,13 +137,21 @@ def count_synthetic_playlist(
             "last_refreshed_at": None,
         }
 
-    session_ids = synthetic_def.get_session_ids(team, user)
-    count = len(session_ids)
+    # Use the count function for efficient database-level counting
+    count = synthetic_def.count_session_ids(team, user)
+
+    # For watched_count, we still need to load session IDs since we're checking user-specific viewed status
+    # But only if count > 0
+    if count > 0:
+        session_ids = synthetic_def.get_session_ids(team, user)
+        watched_count = len(current_user_viewed(session_ids, user, team))
+    else:
+        watched_count = 0
 
     return {
         "count": count if count > 0 else None,
         "has_more": False,  # We don't paginate synthetic playlists (yet)
-        "watched_count": len(current_user_viewed(session_ids, user, team)) if session_ids else 0,
+        "watched_count": watched_count,
         "increased": None,  # We don't track historical changes for synthetic playlists
         "last_refreshed_at": None,
     }
