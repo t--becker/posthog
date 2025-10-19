@@ -78,7 +78,9 @@ def create_synthetic_playlist_instance(
     return instance
 
 
-def count_pinned_recordings(playlist: SessionRecordingPlaylist, user: User, team: Team) -> dict[str, int | bool | None]:
+def count_collection_recordings(
+    playlist: SessionRecordingPlaylist, user: User, team: Team
+) -> dict[str, int | bool | None]:
     playlist_items: QuerySet[SessionRecordingPlaylistItem] = playlist.playlist_items.exclude(deleted=True)
     watched_playlist_items = current_user_viewed(
         # mypy can't detect that it's safe to pass queryset to list() 🤷
@@ -246,9 +248,9 @@ class SessionRecordingPlaylistSerializer(serializers.ModelSerializer, UserAccess
             if getattr(playlist, "_is_synthetic", False):
                 recordings_counts["collection"] = count_synthetic_playlist(playlist, user, team)
             else:
-                recordings_counts["collection"] = count_pinned_recordings(playlist, user, team)
+                recordings_counts["collection"] = count_collection_recordings(playlist, user, team)
 
-                # we only return saved filters if there are no pinned recordings
+                # we only return saved filters if there are no collection recordings
                 if recordings_counts["collection"]["count"] is None or recordings_counts["collection"]["count"] == 0:
                     recordings_counts["saved_filters"] = count_saved_filters(playlist, user, team)
 
