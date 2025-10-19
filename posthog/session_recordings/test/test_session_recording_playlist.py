@@ -501,33 +501,31 @@ class TestSessionRecordingPlaylist(APIBaseTest, QueryMatchingTest):
         assert updated_data["name"] == "updated name for readonly test"  # name should have been updated
         assert updated_data["pinned"] is True  # pinned should have been updated
 
-    def test_filters_based_on_params(self):
+    @parameterized.expand(
+        [
+            ["search_my", "search=my", [2]],
+            ["search_playlist", "search=playlist", [2, 0]],
+            ["user_true", "user=true", [1, 0]],
+            ["pinned_true", "pinned=true", [1]],
+            ["created_by_other", "created_by={other_user_id}", [2]],
+        ]
+    )
+    def test_filters_based_on_params(
+        self, _name: str, query_template: str, expected_playlist_indices: list[int]
+    ) -> None:
         other_user = User.objects.create_and_join(self.organization, "other@posthog.com", "password")
-        playlist1 = SessionRecordingPlaylist.objects.create(team=self.team, name="playlist", created_by=self.user)
-        playlist2 = SessionRecordingPlaylist.objects.create(team=self.team, pinned=True, created_by=self.user)
-        playlist3 = SessionRecordingPlaylist.objects.create(team=self.team, name="my playlist", created_by=other_user)
+        playlists = [
+            SessionRecordingPlaylist.objects.create(team=self.team, name="playlist", created_by=self.user),
+            SessionRecordingPlaylist.objects.create(team=self.team, pinned=True, created_by=self.user),
+            SessionRecordingPlaylist.objects.create(team=self.team, name="my playlist", created_by=other_user),
+        ]
 
-        results = self._get_non_synthetic_playlists("?search=my", expected_synthetic_count=0)
-        assert len(results) == 1
-        assert results[0]["short_id"] == playlist3.short_id
+        query_params = f"?{query_template.format(other_user_id=other_user.id)}"
+        results = self._get_non_synthetic_playlists(query_params, expected_synthetic_count=0)
 
-        results = self._get_non_synthetic_playlists("?search=playlist", expected_synthetic_count=0)
-        assert len(results) == 2
-        assert results[0]["short_id"] == playlist3.short_id
-        assert results[1]["short_id"] == playlist1.short_id
-
-        results = self._get_non_synthetic_playlists("?user=true", expected_synthetic_count=0)
-        assert len(results) == 2
-        assert results[0]["short_id"] == playlist2.short_id
-        assert results[1]["short_id"] == playlist1.short_id
-
-        results = self._get_non_synthetic_playlists("?pinned=true", expected_synthetic_count=0)
-        assert len(results) == 1
-        assert results[0]["short_id"] == playlist2.short_id
-
-        results = self._get_non_synthetic_playlists(f"?created_by={other_user.id}", expected_synthetic_count=0)
-        assert len(results) == 1
-        assert results[0]["short_id"] == playlist3.short_id
+        assert len(results) == len(expected_playlist_indices)
+        for i, playlist_idx in enumerate(expected_playlist_indices):
+            assert results[i]["short_id"] == playlists[playlist_idx].short_id
 
     def test_filters_saved_filters_type(self):
         # Create a playlist with pinned recordings and no filters
